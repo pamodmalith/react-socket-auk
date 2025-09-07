@@ -1,35 +1,88 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState, type ChangeEvent } from "react";
+import { io } from "socket.io-client";
 
-function App() {
-  const [count, setCount] = useState(0)
+const socket = io("http://localhost:4000");
+
+const App = () => {
+  const [username, setUsername] = useState<string>("");
+  const [userData, setUserData] = useState<string[]>([]);
+  const [chatUser, setChatUser] = useState<string>("");
+  const [message, setMessage] = useState<string>("");
+  const [chat, setChat] = useState<string[]>([]);
+
+  useEffect(() => {
+    socket.on("auk", (data: string) => {
+      console.log(data);
+    });
+
+    socket.on("chatUsers", (users: string[]) => {
+      setUserData(users);
+    });
+
+    socket.on("chat", (chatData: { message: string; member: string }) => {
+      if (chatUser === chatData.member) {
+        setChat([]);
+        setChatUser(chatData.member);
+      }
+      setChat((pre) => [...pre, chatData.message]);
+    });
+
+    return () => {
+      socket.removeAllListeners();
+    };
+  }, []);
 
   return (
     <>
+      <h1>Socket.IO Client</h1>
+      <button onClick={() => socket.emit("pamod", "Hello from client!")}>
+        Send Message
+      </button>
       <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+        <p>chat register</p>
+        <div>
+          <input
+            type="text"
+            placeholder="your username"
+            onChange={(e: ChangeEvent<HTMLInputElement>) => {
+              setUsername(e.target.value);
+            }}
+          />
+          <button onClick={() => socket.emit("usernameRegister", username)}>
+            Register
+          </button>
+        </div>
       </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
+      <div>
+        <p>chat</p>
+        <select
+          value={chatUser ? chatUser : undefined}
+          onChange={(e) => setChatUser(e.target.value)}
+        >
+          {userData?.map((user: string, index: number) => {
+            return (
+              <option key={index} value={user}>
+                {user}
+              </option>
+            );
+          })}
+        </select>
+        <div>
+          {chat.map((c, index) => {
+            return <p key={index}>{c}</p>;
+          })}
+        </div>
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+        <button onClick={() => socket.emit("message", { message, chatUser })}>
+          Send
         </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
       </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
     </>
-  )
-}
+  );
+};
 
-export default App
+export default App;
